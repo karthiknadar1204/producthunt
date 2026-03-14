@@ -2,10 +2,10 @@ import { Hono } from "hono";
 import { Stagehand } from "@browserbasehq/stagehand";
 import OpenAI from "openai";
 import { z } from "zod";
+import { ingest as ingestController } from "../controllers/producthunt.controller";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/** Cookie as exported by Cookie-Editor / EditThisCookie (paste into PRODUCTHUNT_COOKIES_JSON). */
 type ExportedCookie = {
   name: string;
   value: string;
@@ -33,7 +33,7 @@ function toStagehandCookie(c: ExportedCookie): { name: string; value: string; do
 
 const productPostSchema = z.object({
   title: z.string().describe("product or launch name"),
-  tagline: z.string().optional().describe("short one-line description"),
+  tagline: z.string().optional().nullable().describe("short one-line description"),
   link: z.string().url().optional().nullable().describe("link to the product or post page"),
 });
 
@@ -212,7 +212,7 @@ producthuntRouter.post("/posts", async (c) => {
         if (suggestedComment) {
           await stagehand.act("type %comment% into the comment box", {
             page,
-            timeout: 15_000,
+            timeout: 45_000,
             variables: { comment: suggestedComment },
           });
           await new Promise((r) => setTimeout(r, 3000));
@@ -265,7 +265,7 @@ producthuntRouter.post("/posts", async (c) => {
 
       products.push({
         title: post.title,
-        tagline: post.tagline,
+        tagline: post.tagline ?? undefined,
         link: post.link,
         ranking,
         upvotes,
@@ -288,5 +288,7 @@ producthuntRouter.post("/posts", async (c) => {
     return c.json({ ok: false, error: message }, 500);
   }
 });
+
+producthuntRouter.post("/ingest", (c) => ingestController(c));
 
 export default producthuntRouter;
